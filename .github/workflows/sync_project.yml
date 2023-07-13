@@ -27,9 +27,9 @@ on:
       excludes:
         required: true
         type: string
-    secrets:
-      token:
+      environment:
         required: true
+        type: string
 env:
   USERNAME: ${{ inputs.username }}
   USEREMAIL: ${{ inputs.useremail }}
@@ -43,8 +43,7 @@ env:
 jobs:
   sync_project:
     runs-on: ubuntu-latest
-    environment: 
-      name: uk-dev
+    environment: ${{ inputs.environment }}
     steps:
       - name: LS
         run: | 
