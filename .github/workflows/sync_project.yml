@@ -43,6 +43,8 @@ env:
 jobs:
   sync_project:
     runs-on: ubuntu-latest
+    environment: 
+      name: uk-dev
     steps:
       - name: LS
         run: | 
