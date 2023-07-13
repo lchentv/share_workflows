@@ -1,0 +1,106 @@
+name: copy_project
+run-name: copy project from branch dev-uk to repo uk -> dev
+on:
+  workflow_call:
+    inputs:
+      username:
+        required: true
+        type: string
+      useremail:
+        required: true
+        type: string
+      source_repo:
+        required: true
+        type: string
+      source_branch:
+        required: true
+        type: string
+      target_repo:
+        required: true
+        type: string
+      target_branch:
+        required: true
+        type: string
+      branch_name:
+        required: true
+        type: string
+      excludes:
+        required: true
+        type: string
+    secrets:
+      token:
+        required: true
+env:
+  USERNAME: ${{ inputs.username }}
+  USEREMAIL: ${{ inputs.useremail }}
+  SOURCE_REPO: ${{ inputs.source_repo }}
+  TARGET_REPO: ${{ inputs.target_repo }}
+  SOURCE_BRANCH: ${{ inputs.source_branch }}
+  TARGET_BRANCH: ${{ inputs.target_branch }}
+  NEW_BRANCH_NAME: ${{ inputs.branch_name }}
+  EXCLUDED_FILES: ${{ inputs.excludes }}
+  TOKEN: ${{ secrets.token }}
+jobs:
+  sync_project:
+    runs-on: ubuntu-latest
+    steps:
+      - name: LS
+        run: | 
+         pwd
+         ls -a
+         tree -d .
+      - name: dump envs
+        env:
+         ENV: ${{ toJson(env) }}
+        run: echo "$ENV"
+      - name: Setup
+        run: |
+         echo "NEW_BRANCH_NAME=$NEW_BRANCH_NAME-`date +"%m-%d-%Y"`" >> $GITHUB_ENV
+         echo "SOURCE_BASENAME=`basename $SOURCE_REPO`" >> $GITHUB_ENV
+         echo "TARGET_BASENAME=`basename $TARGET_REPO`" >> $GITHUB_ENV
+      - name: Clone source repo
+        run: git clone -b $SOURCE_BRANCH https://$USERNAME:$TOKEN@$SOURCE_REPO
+      - name: Clone target repo
+        run: git clone -b $TARGET_BRANCH https://$USERNAME:$TOKEN@$TARGET_REPO
+      - name: Create new branch in target repo
+        working-directory: ${{ env.TARGET_BASENAME  }} 
+        run: |
+         git branch $NEW_BRANCH_NAME
+         git checkout $NEW_BRANCH_NAME
+      - name: Copy files from source repo to target repo
+        run: rsync -arvh $EXCLUDED_FILES ./$SOURCE_BASENAME/ ./$TARGET_BASENAME --delete-before
+      - name: Staging
+        working-directory: ${{ env.TARGET_BASENAME  }}
+        id: staging
+        run: | 
+         git config --global user.email "$USEREMAIL"
+         git config --global user.name "$USERNAME"
+         git add -A
+         git status
+      - name: Checking changes
+        working-directory: ${{ env.TARGET_BASENAME  }}
+        id: check
+        run: |
+          if [[ `git status --porcelain` ]]; then
+            echo "Some change detected"
+            echo "STATUS=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "No changes detected"
+            echo "STATUS=0" >> "$GITHUB_OUTPUT"
+          fi
+        shell: bash
+      - name: Commit
+        working-directory: ${{ env.TARGET_BASENAME  }}
+        if: success() && steps.check.outputs.STATUS == 1
+        run: git commit -m $NEW_BRANCH_NAME
+      - name: Push
+        working-directory: ${{ env.TARGET_BASENAME  }}
+        if: success() && steps.check.outputs.STATUS == 1
+        run: git push -u origin $NEW_BRANCH_NAME
+      - name: Create pull Request
+        working-directory: ${{ env.TARGET_BASENAME  }}
+        if: success() && steps.check.outputs.STATUS == 1
+        env:
+         GH_TOKEN: ${{ env.TOKEN }}
+        run: |
+         gh pr create -B $TARGET_BRANCH --title "$NEW_BRANCH_NAME" --body "$NEW_BRANCH_NAME"
