@@ -39,6 +39,7 @@ env:
   TARGET_BRANCH: ${{ inputs.target_branch }}
   NEW_BRANCH_NAME: ${{ inputs.branch_name }}
   EXCLUDED_FILES: ${{ inputs.excludes }}
+  ENVIRONMENT: ${{ inputs.environment }}
   TOKEN: ${{ secrets.token }}
 jobs:
   sync_project:
