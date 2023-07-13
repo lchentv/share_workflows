@@ -30,6 +30,9 @@ on:
       environment:
         required: true
         type: string
+    secrets:
+      token:
+        required: true
 env:
   USERNAME: ${{ inputs.username }}
   USEREMAIL: ${{ inputs.useremail }}
